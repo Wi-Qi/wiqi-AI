@@ -1,5 +1,6 @@
 import json
 import asyncio
+import random
 from openai import AsyncOpenAI
 from src.config.settings import settings
 from src.schemas.quiz_schema import QuizCreateRequest
@@ -87,42 +88,44 @@ async def _generate_short_answer_question(topic: str, difficulty: str) -> dict:
 # --- 메인 함수: 각 퀴즈 생성 함수를 동시에 호출하고 결과를 조합 ---
 
 
-async def generate_quiz_from_chatgpt(request_data: QuizCreateRequest) -> dict:
+async def generate_quiz_from_chatgpt(request_data: QuizCreateRequest) -> list:
     """
-    각 문제 유형별 생성 함수를 동시에 호출하여 복합 유형 퀴즈를 생성합니다.
+    정해진 규칙에 따라 랜덤한 유형의 퀴즈 3개를 생성합니다.
+    (주관식은 최대 1개)
     """
-    try:
-        # 세 가지 유형의 퀴즈 생성을 위한 비동기 작업 목록 생성
-        tasks = [
-            _generate_ox_question(request_data.topic, request_data.difficulty),
-            _generate_multiple_choice_question(
-                request_data.topic, request_data.difficulty
-            ),
-            _generate_short_answer_question(
-                request_data.topic, request_data.difficulty
-            ),
-        ]
+    generators = {
+        "ox": _generate_ox_question,
+        "mc": _generate_multiple_choice_question,
+        "sa": _generate_short_answer_question,
+    }
 
-        # asyncio.gather를 사용하여 모든 작업을 동시에 실행하고 결과를 기다림
+    types_to_generate = []
+
+    if random.choice([True, False]):
+        types_to_generate.append("sa")
+        # 나머지 2개는 O/X 또는 객관식 중에서 랜덤으로 선택
+        types_to_generate.extend(random.choices(["ox", "mc"], k=2))
+    else:
+        # 주관식을 포함하지 않을 경우, O/X, 객관식 중에서만 3개 랜덤 선택
+        types_to_generate.extend(random.choices(["ox", "mc"], k=3))
+
+    # 생성할 문제 유형 리스트를 무작위로 섞어줍니다.
+    random.shuffle(types_to_generate)
+
+    try:
+        tasks = []
+        for q_type in types_to_generate:
+            task = generators[q_type](request_data.topic, request_data.difficulty)
+            tasks.append(task)
+
         results = await asyncio.gather(*tasks, return_exceptions=True)
 
-        # 결과 중 예외가 있는지 확인
         for result in results:
             if isinstance(result, Exception):
-                # 예외가 발생하면 에러를 다시 발생시켜 상위 핸들러가 처리하도록 함
                 raise result
 
-        # 성공적인 결과들을 변수에 할당
-        ox_res, mc_res, sa_res = results
-
-        # 최종 응답 형식에 맞게 결과를 조합하여 반환
-        return {
-            "ox_question": ox_res,
-            "multiple_choice_question": mc_res,
-            "short_answer_question": sa_res,
-        }
+        return results
 
     except Exception as e:
-        print(f"Error generating quiz composite: {e}")
-        # routes/quiz.py의 예외 처리 블록으로 전달될 에러
+        print(f"Error generating random quiz composite: {e}")
         raise ValueError("퀴즈 생성에 실패했습니다.")

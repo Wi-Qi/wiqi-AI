@@ -1,7 +1,7 @@
 # src/schemas/quiz_schema.py
 
 from pydantic import BaseModel
-from typing import List, Optional
+from typing import List, Optional, Union
 
 
 # --- Request Schema ---
@@ -32,9 +32,11 @@ class ShortAnswerQuestion(BaseModel):
 
 
 # --- Main Response Schema ---
+
+AnyQuestion = Union[OxQuestion, MultipleChoiceQuestion, ShortAnswerQuestion]
+
+
 class QuizResponse(BaseModel):
     topic: str
     difficulty: str
-    ox_question: OxQuestion
-    multiple_choice_question: MultipleChoiceQuestion
-    short_answer_question: ShortAnswerQuestion
+    questions: List[AnyQuestion]
