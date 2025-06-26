@@ -40,8 +40,85 @@ pip install -r requirements.txt
 uvicorn main:app --reload
 ```
 
-### API 문서 확인
-Swagger UI:
+
+### 📖 API 사용법
+#### 퀴즈 생성하기
+**Endpoint**: `POST /quiz/generate`
+
+**Description**: `주어진 주제와 난이도로 새로운 퀴즈 3개를 생성합니다. (주관식은 최대 1개 포함)`
+
+
+### 요청 예시 (Request)
+#### Request Body:
 ```
-http://localhost:8000/docs
+{
+  "topic": "문학",
+  "difficulty_level": 5
+}
 ```
+
+#### curl 명령어:
+```
+curl -X 'POST' \
+  'http://127.0.0.1:8000/api/v1/quiz/generate' \
+  -H 'accept: application/json' \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "topic": "문학",
+    "difficulty_level": 5
+  }'
+```
+
+### 응답 예시 (Response)
+
+```
+{
+  "topic": "문학",
+  "difficulty_level": 5,
+  "questions": [
+    {
+      "question_number": 1,
+      "question_type": "multiple_choice",
+      "question": "다음 중 조지 오웰의 소설 제목이 아닌 것은 무엇입니까?",
+      "options": [
+        "1984년",
+        "동물농장",
+        "파리와 런던",
+        "위대한 유산"
+      ],
+      "answer": "위대한 유산",
+      "explanation": "위대한 유산은 찰스 디킨스의 소설로, 조지 오웰과는 관련이 없습니다."
+    },
+    {
+      "question_number": 2,
+      "question_type": "short_answer",
+      "question": "이 문학 작품은 프랑스의 작가 빅토르 위고가 쓴 것으로, 19세기 프랑스의 사회적 현실을 배경으로 한 소설입니다. 제목은 무엇일까요?",
+      "answer": "레 미제라블",
+      "similar_answers": [
+        "레 미제라블"
+      ],
+      "explanation": "이 작품은 빅토르 위고가 쓴 대표적인 소설로, 19세기 프랑스의 사회 문제와 혁명에 관한 이야기를 담고 있습니다."
+    },
+    {
+      "question_number": 3,
+      "question_type": "multiple_choice",
+      "question": "아래 중 셰익스피어의 작품이 아닌 것은 무엇입니까?",
+      "options": [
+        "햄릿",
+        "오셀로",
+        "로미오와 줄리엣",
+        "돈키호테"
+      ],
+      "answer": "돈키호테",
+      "explanation": "돈키호테는 스페인 작가 미구엘 데 세르반테스가 쓴 작품으로, 셰익스피어의 작품이 아닙니다."
+    }
+  ]
+}
+```
+
+### ⚙️ API 문서 자동 확인
+보다 자세한 내용 확인 및 API 테스트는 서버 실행 후 아래 주소에서 가능합니다.
+
+Swagger UI: `http://localhost:8000/docs`
+
+ReDoc: `http://localhost:8000/redoc`
