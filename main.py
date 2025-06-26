@@ -7,8 +7,7 @@ app = FastAPI(
     version="1.0.0",
 )
 
-# /api/v1 접두사를 사용하여 라우터 포함
-app.include_router(quiz.router, prefix="/api/v1")
+app.include_router(quiz.router, prefix="")
 
 
 @app.get("/", tags=["Root"])
