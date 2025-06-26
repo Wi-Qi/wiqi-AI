@@ -29,3 +29,18 @@
     └── schemas/
         └── quiz_schema.py  # Pydantic을 이용한 데이터 유효성 검사 모델
 ```
+
+### 의존성 설치
+```
+pip install -r requirements.txt
+```
+
+### 서버 실행
+```
+uvicorn main:app --reload
+```
+
+### API 문서 확인
+```
+Swagger UI: http://localhost:8000/docs
+```
