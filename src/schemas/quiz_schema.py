@@ -1,5 +1,3 @@
-# src/schemas/quiz_schema.py
-
 from pydantic import BaseModel, Field
 from typing import List, Optional, Union
 
@@ -7,18 +5,21 @@ from typing import List, Optional, Union
 # --- Request Schema ---
 class QuizCreateRequest(BaseModel):
     topic: str
-    # 난이도 1-10 사이의 정수로 정의, 숫자가 높을수록 어려운 문제
     difficulty_level: int = Field(5, ge=1, le=10)
 
 
 # --- Response Schemas for each question type ---
 class OxQuestion(BaseModel):
+    question_number: int
+    question_type: str
     question: str
-    answer: bool  # O/X 문제이므로 boolean 타입 (True/False)
+    answer: bool
     explanation: Optional[str] = None
 
 
 class MultipleChoiceQuestion(BaseModel):
+    question_number: int
+    question_type: str
     question: str
     options: List[str]
     answer: str
@@ -26,6 +27,8 @@ class MultipleChoiceQuestion(BaseModel):
 
 
 class ShortAnswerQuestion(BaseModel):
+    question_number: int
+    question_type: str
     question: str
     answer: str
     similar_answers: Optional[List[str]] = None
@@ -33,7 +36,6 @@ class ShortAnswerQuestion(BaseModel):
 
 
 # --- Main Response Schema ---
-
 AnyQuestion = Union[OxQuestion, MultipleChoiceQuestion, ShortAnswerQuestion]
 
 
