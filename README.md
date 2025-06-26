@@ -41,6 +41,7 @@ uvicorn main:app --reload
 ```
 
 ### API 문서 확인
+Swagger UI:
 ```
-Swagger UI: http://localhost:8000/docs
+http://localhost:8000/docs
 ```
