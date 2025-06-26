@@ -13,21 +13,20 @@ router = APIRouter(
 )
 async def create_quiz(request: QuizCreateRequest):
     """
-    새로운 퀴즈를 생성합니다.
-
-    - **topic**: 퀴즈 주제 (예: "한국사")
-    - **num_questions**: 생성할 문제 수 (기본값: 5)
-    - **difficulty**: 난이도 (기본값: "중급")
+    새로운 복합 유형(O/X, 4지선다, 주관식) 퀴즈를 생성합니다.
     """
     try:
         generated_data = await quiz_generator.generate_quiz_from_chatgpt(request)
-
-        # Pydantic 모델을 사용하여 응답 데이터 구조 검증 및 조합
+        if not generated_data:
+            raise ValueError("퀴즈 생성에 실패했습니다. 입력 데이터를 확인하세요.")
         response_data = {
             "topic": request.topic,
             "difficulty": request.difficulty,
-            "questions": generated_data.get("questions", []),
+            "ox_question": generated_data.get("ox_question"),
+            "multiple_choice_question": generated_data.get("multiple_choice_question"),
+            "short_answer_question": generated_data.get("short_answer_question"),
         }
+
         return response_data
 
     except ValueError as e:
