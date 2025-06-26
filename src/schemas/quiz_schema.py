@@ -1,13 +1,14 @@
 # src/schemas/quiz_schema.py
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from typing import List, Optional, Union
 
 
 # --- Request Schema ---
 class QuizCreateRequest(BaseModel):
     topic: str
-    difficulty: str = "중급"
+    # 난이도 1-10 사이의 정수로 정의, 숫자가 높을수록 어려운 문제
+    difficulty_level: int = Field(5, ge=1, le=10)
 
 
 # --- Response Schemas for each question type ---
@@ -38,5 +39,5 @@ AnyQuestion = Union[OxQuestion, MultipleChoiceQuestion, ShortAnswerQuestion]
 
 class QuizResponse(BaseModel):
     topic: str
-    difficulty: str
+    difficulty_level: int
     questions: List[AnyQuestion]

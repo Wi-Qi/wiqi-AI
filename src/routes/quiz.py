@@ -13,18 +13,19 @@ router = APIRouter(
 )
 async def create_quiz(request: QuizCreateRequest):
     """
-    새로운 복합 유형(O/X, 4지선다, 주관식) 퀴즈를 랜덤으로 3개 생성합니다.
-    (주관식은 최대 1개만 포함됩니다.)
+    새로운 복합 유형 퀴즈를 랜덤으로 3개 생성합니다.
+    - topic: 퀴즈 주제
+    - difficulty_level: 난이도 (1~10, 기본값 5)
     """
     try:
-        # 이제 quiz_generator는 문제 딕셔너리의 '리스트'를 반환합니다.
         generated_questions = await quiz_generator.generate_quiz_from_chatgpt(request)
 
         # QuizResponse 스키마에 맞게 최종 응답 데이터를 구성합니다.
         response_data = {
             "topic": request.topic,
-            "difficulty": request.difficulty,
-            "questions": generated_questions,  # 생성된 문제 리스트를 그대로 할당
+            # request.difficulty 대신 request.difficulty_level을 사용합니다.
+            "difficulty_level": request.difficulty_level,
+            "questions": generated_questions,
         }
 
         return response_data

@@ -5,89 +5,79 @@ from openai import AsyncOpenAI
 from src.config.settings import settings
 from src.schemas.quiz_schema import QuizCreateRequest
 
-# OpenAI 클라이언트 초기화
+# --- 설정 및 공통 프롬프트 정의 ---
+GPT_MODEL = "gpt-4.1-nano"
+BASE_SYSTEM_PROMPT = "당신은 간단한 퀴즈 풀이 문제를 만드는 전문가입니다. 사용자의 요청에 따라 지정된 주제와 난이도에 맞는 퀴즈를 생성합니다."
 client = AsyncOpenAI(api_key=settings.OPENAI_API_KEY)
 
 
-# --- 내부 헬퍼 함수: 각 문제 유형별 생성 ---
+# --- 새로운 내부 헬퍼 함수: 반복되는 GPT API 호출 로직 ---
+async def _call_gpt_for_quiz(system_prompt: str, user_prompt: str) -> dict:
+    """
+    시스템/유저 프롬프트를 받아 GPT API를 호출하고 결과를 반환하는 공통 함수
+    """
+    response = await client.chat.completions.create(
+        model=GPT_MODEL,
+        messages=[
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": user_prompt},
+        ],
+        response_format={"type": "json_object"},
+        temperature=0.7,
+    )
+    return json.loads(response.choices[0].message.content)
 
 
-async def _generate_ox_question(topic: str, difficulty: str) -> dict:
+# --- 각 문제 유형별 생성 함수 (difficulty_level 사용하도록 수정) ---
+async def _generate_ox_question(topic: str, difficulty_level: int) -> dict:
     """O/X 퀴즈 1개를 생성합니다."""
-    system_prompt = """
-    당신은 지정된 주제와 난이도에 맞는 O/X 퀴즈를 1개 생성하는 전문가입니다.
-    반드시 다음 규칙을 지켜 JSON 형식으로만 응답해야 합니다.
-    - JSON 구조: {"question": "질문 내용", "answer": true, "explanation": "정답 해설"}
+    specific_prompt = """
+    O/X 퀴즈 1개를 생성해야 합니다.
+    - JSON 구조: {"question_type": "O/X", "question": "질문 내용", "answer": true, "explanation": "정답 해설"}
     - 'answer' 필드는 반드시 boolean 타입인 `true` 또는 `false`여야 합니다.
     """
+    final_system_prompt = f"{BASE_SYSTEM_PROMPT}\n\n반드시 다음 규칙을 지켜 JSON 형식으로만 응답해야 합니다.\n{specific_prompt}"
+    # 사용자 프롬프트에 숫자 난이도를 명확히 전달
     user_prompt = (
-        f"주제: {topic}, 난이도: {difficulty}에 대한 O/X 퀴즈 1개를 생성해 주세요."
+        f"주제: {topic}, 난이도 (1~10, 10이 가장 어려움): {difficulty_level}/10"
     )
 
-    response = await client.chat.completions.create(
-        model="gpt-4-turbo",
-        messages=[
-            {"role": "system", "content": system_prompt},
-            {"role": "user", "content": user_prompt},
-        ],
-        response_format={"type": "json_object"},
-        temperature=0.7,
-    )
-    return json.loads(response.choices[0].message.content)
+    return await _call_gpt_for_quiz(final_system_prompt, user_prompt)
 
 
-async def _generate_multiple_choice_question(topic: str, difficulty: str) -> dict:
+async def _generate_multiple_choice_question(topic: str, difficulty_level: int) -> dict:
     """4지선다형 퀴즈 1개를 생성합니다."""
-    system_prompt = """
-    당신은 지정된 주제와 난이도에 맞는 4지선다형 퀴즈를 1개 생성하는 전문가입니다.
-    반드시 다음 규칙을 지켜 JSON 형식으로만 응답해야 합니다.
-    - JSON 구조: {"question": "질문 내용", "options": ["선택지1", "선택지2", "선택지3", "선택지4"], "answer": "정답 선택지", "explanation": "정답 해설"}
+    specific_prompt = """
+    4지선다형 퀴즈 1개를 생성해야 합니다.
+    - JSON 구조: {"question_type": "객관식", "question": "질문 내용", "options": ["선택지1", "선택지2", "선택지3", "선택지4"], "answer": "정답 선택지", "explanation": "정답 해설"}
     - 'options' 필드는 항상 4개의 선택지를 포함해야 합니다.
-    - 'answer'는 'options'에 포함된 내용과 정확히 일치해야 합니다.
     """
-    user_prompt = f"주제: {topic}, 난이도: {difficulty}에 대한 4지선다형 퀴즈 1개를 생성해 주세요."
-
-    response = await client.chat.completions.create(
-        model="gpt-4-turbo",
-        messages=[
-            {"role": "system", "content": system_prompt},
-            {"role": "user", "content": user_prompt},
-        ],
-        response_format={"type": "json_object"},
-        temperature=0.7,
-    )
-    return json.loads(response.choices[0].message.content)
-
-
-async def _generate_short_answer_question(topic: str, difficulty: str) -> dict:
-    """주관식 퀴즈 1개를 생성합니다. (유사 답안 포함)"""
-    system_prompt = """
-    당신은 지정된 주제와 난이도에 맞는 주관식(단답형) 퀴즈를 1개 생성하는 전문가입니다.
-    반드시 다음 규칙을 지켜 JSON 형식으로만 응답해야 합니다.
-    - JSON 구조: {"question": "...", "answer": "가장 정확한 정답", "similar_answers": ["유사 답안1", "유사 답안2"], "explanation": "..."}
-    - 'answer' 필드에는 가장 대표적이고 정확한 답을 기입합니다.
-    - 'similar_answers' 필드에는 맞다고 인정할 수 있는 동의어, 다른 표현, 띄어쓰기로 인한 유사 답안 또는 흔한 오타 등을 문자열 배열(list) 형태로 포함합니다.
-    - 만약 유사 답안이 없다면, 이 필드를 생략하거나 빈 배열 `[]`로 설정할 수 있습니다.
-    """
+    final_system_prompt = f"{BASE_SYSTEM_PROMPT}\n\n반드시 다음 규칙을 지켜 JSON 형식으로만 응답해야 합니다.\n{specific_prompt}"
+    # 사용자 프롬프트에 숫자 난이도를 명확히 전달
     user_prompt = (
-        f"주제: {topic}, 난이도: {difficulty}에 대한 주관식 퀴즈 1개를 생성해 주세요."
+        f"주제: {topic}, 난이도 (1~10, 10이 가장 어려움): {difficulty_level}/10"
     )
 
-    response = await client.chat.completions.create(
-        model="gpt-4-turbo",
-        messages=[
-            {"role": "system", "content": system_prompt},
-            {"role": "user", "content": user_prompt},
-        ],
-        response_format={"type": "json_object"},
-        temperature=0.7,
+    return await _call_gpt_for_quiz(final_system_prompt, user_prompt)
+
+
+async def _generate_short_answer_question(topic: str, difficulty_level: int) -> dict:
+    """주관식 퀴즈 1개를 생성합니다."""
+    specific_prompt = """
+    주관식(단답형) 퀴즈 1개를 생성해야 합니다.
+    - JSON 구조: {"question_type": "주관식", "question": "...", "answer": "가장 정확한 정답", "similar_answers": ["유사 답안1"], "explanation": "..."}
+    - 'similar_answers' 필드에는 맞다고 인정할 수 있는 동의어, 다른 표현 등을 포함합니다.
+    """
+    final_system_prompt = f"{BASE_SYSTEM_PROMPT}\n\n반드시 다음 규칙을 지켜 JSON 형식으로만 응답해야 합니다.\n{specific_prompt}"
+    # 사용자 프롬프트에 숫자 난이도를 명확히 전달
+    user_prompt = (
+        f"주제: {topic}, 난이도 (1~10, 10이 가장 어려움): {difficulty_level}/10"
     )
-    return json.loads(response.choices[0].message.content)
+
+    return await _call_gpt_for_quiz(final_system_prompt, user_prompt)
 
 
-# --- 메인 함수: 각 퀴즈 생성 함수를 동시에 호출하고 결과를 조합 ---
-
-
+# --- 메인 함수 (difficulty_level 사용하도록 수정) ---
 async def generate_quiz_from_chatgpt(request_data: QuizCreateRequest) -> list:
     """
     정해진 규칙에 따라 랜덤한 유형의 퀴즈 3개를 생성합니다.
@@ -103,19 +93,17 @@ async def generate_quiz_from_chatgpt(request_data: QuizCreateRequest) -> list:
 
     if random.choice([True, False]):
         types_to_generate.append("sa")
-        # 나머지 2개는 O/X 또는 객관식 중에서 랜덤으로 선택
         types_to_generate.extend(random.choices(["ox", "mc"], k=2))
     else:
-        # 주관식을 포함하지 않을 경우, O/X, 객관식 중에서만 3개 랜덤 선택
         types_to_generate.extend(random.choices(["ox", "mc"], k=3))
 
-    # 생성할 문제 유형 리스트를 무작위로 섞어줍니다.
     random.shuffle(types_to_generate)
 
     try:
         tasks = []
         for q_type in types_to_generate:
-            task = generators[q_type](request_data.topic, request_data.difficulty)
+            # request_data.difficulty 대신 difficulty_level을 전달합니다.
+            task = generators[q_type](request_data.topic, request_data.difficulty_level)
             tasks.append(task)
 
         results = await asyncio.gather(*tasks, return_exceptions=True)
